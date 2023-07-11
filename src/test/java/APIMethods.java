@@ -1,0 +1,112 @@
+import io.restassured.RestAssured;
+import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+
+public class APIMethods {
+
+    private final int STATUS_CODE_200 = 200;
+    private final int STATUS_CODE_201 = 201;
+    public static String TOKEN_VALUE;
+    public static final String TOKEN = "token";
+
+    @BeforeMethod
+    public void setUp() {
+        RestAssured.baseURI = "https://restful-booker.herokuapp.com";
+        CreateTokenBody body = new CreateTokenBody("admin", "password123");
+        RestAssured.requestSpecification = new RequestSpecBuilder()
+                .setContentType(ContentType.JSON)
+                .addHeader("Accept", "application/json")
+                .build();
+
+        Response response = RestAssured.given()
+                .body(body)
+                .post("/auth");
+        TOKEN_VALUE = response.then().extract().jsonPath().get(TOKEN);
+    }
+
+    @Test
+    public Response createBooking(String firstnameExpected, String lastnameExpected,
+                                  Integer totalpriceExpected, Boolean depositPaidExpected,
+                                  String additionalneedsExpected, String checkin, String checkout) {
+        BookingDates bookingDates = new BookingDates(checkin, checkout);
+        CreateBookingBody body = new CreateBookingBody().builder()
+                .firstname(firstnameExpected)
+                .lastname(lastnameExpected)
+                .totalprice(totalpriceExpected)
+                .depositpaid(depositPaidExpected)
+                .bookingdates(bookingDates)
+                .additionalneeds(additionalneedsExpected)
+                .build();
+
+        Response book = RestAssured.given()
+                .body(body)
+                .post("/booking");
+        book.prettyPrint();
+        book.then().statusCode(STATUS_CODE_200);
+        book.as(ResponseBooking.class);
+        return book;
+    }
+
+    @Test
+    public void getAllBooking() {
+        Response response = RestAssured.given().log().all().get("/booking");
+        response.then().statusCode(STATUS_CODE_200);
+    }
+
+    @Test
+    public void getBookingById(int bookingID) {
+        Response bookingId = RestAssured.given().log().all().get("/booking/{id}", bookingID);
+        bookingId.prettyPrint();
+        bookingId.then().statusCode(STATUS_CODE_200);
+    }
+
+    @Test
+    public Response updatedTotalPrice(int bookingID) {
+        CreateBookingBody body = new CreateBookingBody();
+        body.setTotalprice(2000);
+        Response response = RestAssured.given()
+                .header("Accept", "application/json")
+                .contentType(ContentType.JSON)
+                .cookie(TOKEN, TOKEN_VALUE)
+                .body(body)
+                .patch("/booking/{id}", bookingID);
+        response.then().statusCode(STATUS_CODE_200);
+        response.prettyPrint();
+        return response;
+    }
+
+    @Test
+    public void deleteBookingTest(int bookingID) {
+        Response deleteBooking = RestAssured.given()
+                .cookie(TOKEN, TOKEN_VALUE)
+                .delete("/booking/{id}", bookingID);
+        deleteBooking.prettyPrint();
+        deleteBooking.then().statusCode(STATUS_CODE_201);
+    }
+
+    @Test
+    public void updateNameLastnameAdditionalneedsBooking(int bookingID, String firstname, String lastname, String additionalneeds) {
+        Response bookingId = RestAssured.given().log().all().get("/booking/{id}", bookingID);
+        CreateBookingBody body = new CreateBookingBody().builder()
+                .firstname(firstname)
+                .lastname(lastname)
+                .totalprice(bookingId.jsonPath().get("totalprice"))
+                .depositpaid(bookingId.jsonPath().get("depositpaid"))
+                .bookingdates(new BookingDates(bookingId.jsonPath().get("bookingdates.checkin").toString(), bookingId.jsonPath().get("bookingdates.checkout").toString()))
+                .additionalneeds(additionalneeds)
+                .build();
+
+        Response updatedBooking = RestAssured.given()
+                .header("Accept", "application/json")
+                .contentType(ContentType.JSON)
+                .cookie(TOKEN, TOKEN_VALUE)
+                .body(body)
+                .put("/booking/{id}", bookingID);
+        updatedBooking.prettyPrint();
+        updatedBooking.then().statusCode(200);
+    }
+}
