@@ -5,12 +5,17 @@ import io.restassured.response.Response;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import org.testng.asserts.SoftAssert;
+
+import java.time.LocalDate;
 
 
 public class APIMethods {
 
     private final int STATUS_CODE_200 = 200;
     private final int STATUS_CODE_201 = 201;
+    private final String BOOKING = "/booking";
+    private final String BOOKING_ID = "/booking/{id}";
     public static String TOKEN_VALUE;
     public static final String TOKEN = "token";
 
@@ -32,6 +37,7 @@ public class APIMethods {
     @Test
     public void createBookingTest() {
         BookingDates bookingDates = new BookingDates("2022-02-02", "2031-01-01");
+
         String firstNameExpected = "Natalie";
         String lastNameExpected = "Soloviova";
         Integer totalPriceExpected = 6000;
@@ -49,7 +55,7 @@ public class APIMethods {
 
         Response book = RestAssured.given()
                 .body(body)
-                .post("/booking");
+                .post(BOOKING);
         book.prettyPrint();
         book.then().statusCode(STATUS_CODE_200);
         book.as(ResponseBooking.class);
@@ -57,35 +63,41 @@ public class APIMethods {
         String lastNameActual = book.as(ResponseBooking.class).getBooking().getLastname();
         Integer totalpriceActual = book.as(ResponseBooking.class).getBooking().getTotalprice();
         Boolean depositpaidActual = book.as(ResponseBooking.class).getBooking().getDepositpaid();
-        Assert.assertEquals(firstNameActual, firstNameExpected, "firstName is wrong");
-        Assert.assertEquals(lastNameActual, lastNameExpected, "lastName is wrong");
-        Assert.assertEquals(totalpriceActual, totalPriceExpected, "firstName is wrong");
-        Assert.assertEquals(depositpaidExpected, depositpaidActual, "depositpaid is wrong");
+        SoftAssert softAssertion= new SoftAssert();
+        softAssertion.assertEquals(firstNameActual, firstNameExpected, "firstName is wrong");
+        softAssertion.assertEquals(lastNameActual, lastNameExpected, "lastName is wrong");
+        softAssertion.assertEquals(totalpriceActual, totalPriceExpected, "firstName is wrong");
+        softAssertion.assertEquals(depositpaidExpected, depositpaidActual, "depositpaid is wrong");
     }
+
     private Integer findFirstBooking() {
-        Response getBookings = RestAssured.get("/booking");
+        Response getBookings = RestAssured.get(BOOKING);
         return getBookings.then().extract().jsonPath().get("bookingid[0]");
     }
+
     private Integer findSecondBooking() {
-        Response getBookings = RestAssured.get("/booking");
+        Response getBookings = RestAssured.get(BOOKING);
         return getBookings.then().extract().jsonPath().get("bookingid[1]");
     }
+
     @Test
     public void getAllBooking() {
-        Response response = RestAssured.given().log().all().get("/booking");
+        Response response = RestAssured.given().log().all().get(BOOKING);
         response.then().statusCode(STATUS_CODE_200);
     }
 
     @Test
     public void getBookingById() {
-        Response bookingId = RestAssured.given().log().all().get("/booking/{id}", 1);
+        Integer pathId = findFirstBooking();
+        Response bookingId = RestAssured.given().log().all().get(BOOKING_ID, findFirstBooking());
         bookingId.prettyPrint();
         bookingId.then().statusCode(STATUS_CODE_200);
-        Assert.assertEquals(bookingId.jsonPath().get("firstname"), "Mark", "Firstname is wrong");
+        Assert.assertEquals(bookingId.jsonPath().get("firstname"), "firstname", "Firstname is wrong");
     }
 
     @Test
     public void updatedTotalPrice() {
+        Integer pathId = findFirstBooking();
         CreateBookingBody body = new CreateBookingBody();
         body.setTotalprice(2000);
         Response response = RestAssured.given()
@@ -93,7 +105,7 @@ public class APIMethods {
                 .contentType(ContentType.JSON)
                 .cookie(TOKEN, TOKEN_VALUE)
                 .body(body)
-                .patch("/booking/{id}", 1);
+                .patch(BOOKING_ID, pathId);
         response.then().statusCode(STATUS_CODE_200);
         response.prettyPrint();
     }
@@ -103,7 +115,7 @@ public class APIMethods {
         Integer pathId = findSecondBooking();
         Response deleteBooking = RestAssured.given()
                 .cookie(TOKEN, TOKEN_VALUE)
-                .delete("/booking/{id}", pathId);
+                .delete(BOOKING_ID, pathId);
         deleteBooking.prettyPrint();
         deleteBooking.then().statusCode(STATUS_CODE_201);
     }
@@ -111,13 +123,19 @@ public class APIMethods {
     @Test
     public void updateNameLastnameAdditionalNeedsBooking() {
         Integer pathId = findFirstBooking();
-        Response bookingId = RestAssured.given().log().all().get("/booking/{id}", pathId);
+        CreateBookingBody bookingId = RestAssured
+                .given()
+                .log()
+                .all()
+                .get(BOOKING_ID, pathId)
+                .as(CreateBookingBody.class);
+
         CreateBookingBody body = new CreateBookingBody().builder()
                 .firstname("firstname")
                 .lastname("lastname")
-                .totalprice(bookingId.jsonPath().get("totalprice"))
-                .depositpaid(bookingId.jsonPath().get("depositpaid"))
-                .bookingdates(new BookingDates(bookingId.jsonPath().get("bookingdates.checkin").toString(), bookingId.jsonPath().get("bookingdates.checkout").toString()))
+                .totalprice(bookingId.getTotalprice())
+                .depositpaid(bookingId.getDepositpaid())
+                .bookingdates(new BookingDates(bookingId.getBookingdates().getCheckin(), bookingId.getBookingdates().getCheckout()))
                 .additionalneeds("additionalneeds")
                 .build();
 
@@ -126,12 +144,13 @@ public class APIMethods {
                 .contentType(ContentType.JSON)
                 .cookie(TOKEN, TOKEN_VALUE)
                 .body(body)
-                .put("/booking/{id}", pathId);
+                .put(BOOKING_ID, pathId);
         updatedBooking.prettyPrint();
         updatedBooking.then().statusCode(200);
         String firstNameExpected = updatedBooking.as(CreateBookingBody.class).getFirstname();
-        String additionalneedsExpected=updatedBooking.as(CreateBookingBody.class).getAdditionalneeds();
-        Assert.assertEquals("firstname", firstNameExpected,"firstname is wrong");
-        Assert.assertEquals("additionalneeds", additionalneedsExpected,"additionalneeds is wrong");
+        String additionalneedsExpected = updatedBooking.as(CreateBookingBody.class).getAdditionalneeds();
+        SoftAssert softAssertion= new SoftAssert();
+        softAssertion.assertEquals("firstname", firstNameExpected, "firstname is wrong");
+        softAssertion.assertEquals("additionalneeds", additionalneedsExpected, "additionalneeds is wrong");
     }
 }
