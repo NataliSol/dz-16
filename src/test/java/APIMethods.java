@@ -2,6 +2,7 @@ import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -29,15 +30,19 @@ public class APIMethods {
     }
 
     @Test
-    public Response createBooking(String firstnameExpected, String lastnameExpected,
-                                  Integer totalpriceExpected, Boolean depositPaidExpected,
-                                  String additionalneedsExpected, String checkin, String checkout) {
-        BookingDates bookingDates = new BookingDates(checkin, checkout);
+    public void createBookingTest() {
+        BookingDates bookingDates = new BookingDates("2022-02-02", "2031-01-01");
+        String firstNameExpected = "Natalie";
+        String lastNameExpected = "Soloviova";
+        Integer totalPriceExpected = 6000;
+        Boolean depositpaidExpected = false;
+        String additionalneedsExpected = "none";
+
         CreateBookingBody body = new CreateBookingBody().builder()
-                .firstname(firstnameExpected)
-                .lastname(lastnameExpected)
-                .totalprice(totalpriceExpected)
-                .depositpaid(depositPaidExpected)
+                .firstname(firstNameExpected)
+                .lastname(lastNameExpected)
+                .totalprice(totalPriceExpected)
+                .depositpaid(depositpaidExpected)
                 .bookingdates(bookingDates)
                 .additionalneeds(additionalneedsExpected)
                 .build();
@@ -48,7 +53,14 @@ public class APIMethods {
         book.prettyPrint();
         book.then().statusCode(STATUS_CODE_200);
         book.as(ResponseBooking.class);
-        return book;
+        String firstNameActual = book.as(ResponseBooking.class).getBooking().getFirstname();
+        String lastNameActual = book.as(ResponseBooking.class).getBooking().getLastname();
+        Integer totalpriceActual = book.as(ResponseBooking.class).getBooking().getTotalprice();
+        Boolean depositpaidActual = book.as(ResponseBooking.class).getBooking().getDepositpaid();
+        Assert.assertEquals(firstNameActual, firstNameExpected, "firstName is wrong");
+        Assert.assertEquals(lastNameActual, lastNameExpected, "lastName is wrong");
+        Assert.assertEquals(totalpriceActual, totalPriceExpected, "firstName is wrong");
+        Assert.assertEquals(depositpaidExpected, depositpaidActual, "depositpaid is wrong");
     }
 
     @Test
@@ -59,7 +71,7 @@ public class APIMethods {
 
     @Test
     public void getBookingById(int bookingID) {
-        Response bookingId = RestAssured.given().log().all().get("/booking/{id}", bookingID);
+        Response bookingId = RestAssured.given().log().all().get("/booking/{id}", 1);
         bookingId.prettyPrint();
         bookingId.then().statusCode(STATUS_CODE_200);
     }
