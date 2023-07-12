@@ -66,6 +66,10 @@ public class APIMethods {
         Response getBookings = RestAssured.get("/booking");
         return getBookings.then().extract().jsonPath().get("bookingid[0]");
     }
+    private Integer findSecondBooking() {
+        Response getBookings = RestAssured.get("/booking");
+        return getBookings.then().extract().jsonPath().get("bookingid[1]");
+    }
     @Test
     public void getAllBooking() {
         Response response = RestAssured.given().log().all().get("/booking");
@@ -96,9 +100,10 @@ public class APIMethods {
 
     @Test
     public void deleteBookingTest() {
+        Integer pathId = findSecondBooking();
         Response deleteBooking = RestAssured.given()
                 .cookie(TOKEN, TOKEN_VALUE)
-                .delete("/booking/{id}", 3);
+                .delete("/booking/{id}", pathId);
         deleteBooking.prettyPrint();
         deleteBooking.then().statusCode(STATUS_CODE_201);
     }
