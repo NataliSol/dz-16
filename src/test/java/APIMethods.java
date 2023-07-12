@@ -62,7 +62,10 @@ public class APIMethods {
         Assert.assertEquals(totalpriceActual, totalPriceExpected, "firstName is wrong");
         Assert.assertEquals(depositpaidExpected, depositpaidActual, "depositpaid is wrong");
     }
-
+    private Integer findFirstBooking() {
+        Response getBookings = RestAssured.get("/booking");
+        return getBookings.then().extract().jsonPath().get("bookingid[0]");
+    }
     @Test
     public void getAllBooking() {
         Response response = RestAssured.given().log().all().get("/booking");
@@ -101,8 +104,9 @@ public class APIMethods {
     }
 
     @Test
-    public void updateNameLastnameAdditionalneedsBooking() {
-        Response bookingId = RestAssured.given().log().all().get("/booking/{id}", 4);
+    public void updateNameLastnameAdditionalNeedsBooking() {
+        Integer pathId = findFirstBooking();
+        Response bookingId = RestAssured.given().log().all().get("/booking/{id}", pathId);
         CreateBookingBody body = new CreateBookingBody().builder()
                 .firstname("firstname")
                 .lastname("lastname")
@@ -117,7 +121,7 @@ public class APIMethods {
                 .contentType(ContentType.JSON)
                 .cookie(TOKEN, TOKEN_VALUE)
                 .body(body)
-                .put("/booking/{id}", 4);
+                .put("/booking/{id}", pathId);
         updatedBooking.prettyPrint();
         updatedBooking.then().statusCode(200);
         String firstNameExpected = updatedBooking.as(CreateBookingBody.class).getFirstname();
